@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 const facts = [
   { label: "Real name", value: "John Michael Osbourne", detail: "This is the name he was born with." },
   { label: "Born", value: "December 3, 1948", detail: "Born in Birmingham, England." },
   { label: "Died", value: "July 22, 2025", detail: "Died of cardiac arrest." },
-  { label: "From", value: "Birmingham, England", detail: "This is part of his early background." },
+  { label: "From", value: "Birmingham, England", detail: "Where he considers home." },
   { label: "Nicknames", value: "Osbourne, Godfather of Heavy Metal", detail: "He was also called the Madman of Rock." },
   { label: "Rock Hall", value: "Inducted twice", detail: "Shows that Osbourne is a legendary figure in rock music." },
 ];
@@ -14,10 +14,21 @@ const facts = [
 const timeline = [
   ["Age 14", "Beatles influence", "When he first heard the Beatles' first hit single, it inspired him to become a musician."],
   ["Age 17", "Rare Breed", "Geezer Butler formed Rare Breed and recruited Osbourne to be the singer."],
-  ["Later", "Black Sabbath", "After Rare Breed disbanded, Osbourne and Geezer Butler reunited with Bill Ward and Tony Iommi under the name Black Sabbath."],
+  ["Age 19", "Black Sabbath", "After Rare Breed disbanded, Osbourne and Geezer Butler reunited with Bill Ward and Tony Iommi under the name Black Sabbath."],
   ["Later albums", "Big catalog", "Over many years, Black Sabbath released albums like Black Sabbath, Paranoid, and Master of Reality."],
   ["Solo era", "Blizzard of Ozz", "Blizzard of Ozz was Osbourne's first solo project."],
 ];
+
+const tracks = [
+  { id: "crazy-train", eyebrow: "Crazy Train", title: "Crazy Train", description: "Considered Osbourne's most famous solo song.", image: "/train.jpg", source: "/crazytrain.mp3" },
+  { id: "black-sabbath", eyebrow: "Black Sabbath", title: "Black Sabbath", description: "A song from the band he helped lead.", image: "/sabbath.jpg", source: "/sabbath.mp3" },
+  { id: "no-more-tears", eyebrow: "No More Tears", title: "No More Tears", description: "One of Osbourne's best-selling solo songs.", image: "/nomoretears.jpg", source: "/nomoretears.mp3" },
+];
+
+const formatTime = (time: number) => {
+  if (!Number.isFinite(time)) return "0:00";
+  return `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, "0")}`;
+};
 
 export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
@@ -38,11 +49,86 @@ export default function Home() {
     document.querySelectorAll(".reveal").forEach((element) => revealObserver.observe(element));
     return () => revealObserver.disconnect();
   }, []);
+  const [activeTrack, setActiveTrack] = useState(tracks[0].id);
+  const [playingTrack, setPlayingTrack] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playingTrackRef = useRef<string | null>(null);
+  const shouldPlayAfterLoad = useRef(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? "dark" : "light";
     window.localStorage.setItem("hall-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    const track = tracks.find((item) => item.id === activeTrack);
+    if (!audio || !track) return;
+
+    audio.src = track.source;
+    audio.load();
+    if (shouldPlayAfterLoad.current) {
+      shouldPlayAfterLoad.current = false;
+      void audio.play().catch(() => {
+        playingTrackRef.current = null;
+        setPlayingTrack(null);
+      });
+    }
+  }, [activeTrack]);
+
+  const toggleTrack = (trackId: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (trackId !== activeTrack) {
+      audio.pause();
+      playingTrackRef.current = null;
+      setPlayingTrack(null);
+      shouldPlayAfterLoad.current = true;
+      setActiveTrack(trackId);
+      setProgress(0);
+      setDuration(0);
+      return;
+    }
+
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
+
+    void audio.play().catch(() => {
+      playingTrackRef.current = null;
+      setPlayingTrack(null);
+    });
+  };
+
+  const seekTrack = (trackId: string, value: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (trackId !== activeTrack) {
+      setActiveTrack(trackId);
+      setProgress(0);
+      setDuration(0);
+      return;
+    }
+    audio.currentTime = Number(value);
+    setProgress(Number(value));
+  };
+
+  const skipTrack = (trackId: string, seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (trackId !== activeTrack) {
+      setActiveTrack(trackId);
+      setProgress(0);
+      setDuration(0);
+      return;
+    }
+    audio.currentTime = Math.min(Math.max(audio.currentTime + seconds, 0), audio.duration || 0);
+    setProgress(audio.currentTime);
+  };
 
   return (
     <main className="ozzy-page">
@@ -114,19 +200,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="gallery reveal">
-        <div className="shell gallery-head">
-          <p className="kicker">Image gallery</p>
-          <h2>Ozzy in focus</h2>
-        </div>
-        <div className="shell gallery-grid">
-          <div className="gallery-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>01</span></div>
-          <div className="gallery-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>02</span></div>
-          <div className="gallery-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>03</span></div>
-          <div className="gallery-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>04</span></div>
-          <div className="gallery-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>05</span></div>
-        </div>
-      </section>
 
       <section className="music shell reveal" id="music">
         <div className="section-stamp">MUSICAL INFO</div>
@@ -134,24 +207,24 @@ export default function Home() {
           <p className="kicker">Career and sound</p>
           <h2>Heavy metal<br /><em>in his hands.</em></h2>
           <p>Osbourne helped define the sound of Black Sabbath. Over the years, the band made albums including Black Sabbath, Paranoid, and Master of Reality.</p>
-          <p>After leaving the band, he started a solo career. Blizzard of Ozz was his first solo project, and “Not Going Away” is another song included in our project.</p>
+          <p>After leaving the band, he started a solo career. Blizzard of Ozz was his first solo project. He also released a song named "Not Going Away", because he showed that he would not stop performing.</p>
         </div>
 
         <div className="music-cards">
           <article className="music-card image-card">
-            <div className="mini-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }} aria-hidden="true" />
+            <div className="mini-photo" style={{ backgroundImage: "url('/bat.jpeg')" }} aria-hidden="true" />
             <p className="kicker">Signature sound</p>
             <h3>Voice and presence</h3>
             <p>His high-drama vocals and stage presence made him impossible to ignore.</p>
           </article>
           <article className="music-card image-card">
-            <div className="mini-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }} aria-hidden="true" />
-            <p className="kicker">Breakout moment</p>
+            <div className="mini-photo" style={{ backgroundImage: "url('/blizzard.jpg')" }} aria-hidden="true" />
+            <p className="kicker">Solo success</p>
             <h3>Blizzard of Ozz</h3>
             <p>His solo work proved that his influence stretched far beyond Black Sabbath.</p>
           </article>
           <article className="music-card image-card">
-            <div className="mini-photo" style={{ backgroundImage: "url('/osbourne.jpeg')" }} aria-hidden="true" />
+            <div className="mini-photo" style={{ backgroundImage: "url('/osbourne2.png')" }} aria-hidden="true" />
             <p className="kicker">Legacy</p>
             <h3>Peak of his career</h3>
             <p>His catalog and performance style still shape the sound of hard rock.</p>
@@ -180,21 +253,64 @@ export default function Home() {
 
       <section className="audio-section shell reveal" id="audio">
         <p className="kicker">Three songs / performances</p>
-        <h2>Listen to the<br /><em>song list.</em></h2>
+        <h2>Listen to the<br /><em>songs.</em></h2>
         <div className="audio-grid">
-          <article className="audio-card">
-            <div className="album-cover" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>OZZY<br />OSBOURNE</span></div>
-            <div className="audio-details"><p className="kicker">Blizzard of Ozz</p><h3>Crazy Train</h3><p>Considered Osbourne's most famous solo song.</p><audio controls preload="none" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Your browser does not support audio.</audio><small>Audio player for the project.</small></div>
-          </article>
-          <article className="audio-card">
-            <div className="album-cover" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>OZZY<br />OSBOURNE</span></div>
-            <div className="audio-details"><p className="kicker">Black Sabbath</p><h3>Black Sabbath</h3><p>A song from the band he helped lead.</p><audio controls preload="none" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Your browser does not support audio.</audio><small>Audio player for the project.</small></div>
-          </article>
-          <article className="audio-card">
-            <div className="album-cover" style={{ backgroundImage: "url('/osbourne.jpeg')" }}><span>OZZY<br />OSBOURNE</span></div>
-            <div className="audio-details"><p className="kicker">No More Tears</p><h3>No More Tears</h3><p>It was one of Osbourne's best-selling solo songs.</p><audio controls preload="none" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Your browser does not support audio.</audio><small>Audio player for the project.</small></div>
-          </article>
+          {tracks.map((track, index) => {
+            const isActive = activeTrack === track.id;
+            const isPlaying = playingTrack === track.id;
+            const percentage = isActive && duration ? (progress / duration) * 100 : 0;
+            return (
+              <article className={`audio-card ${isActive ? "is-active" : ""}`} key={track.id}>
+                <div className="album-cover" style={{ backgroundImage: `url('${track.image}')` }}>
+                  <span>OZZY<br />OSBOURNE</span>
+                  <button className="cover-play" onClick={() => toggleTrack(track.id)} aria-label={`${isPlaying ? "Pause" : "Play"} ${track.title}`}>
+                    {isPlaying ? "Ⅱ" : "▶"}
+                  </button>
+                </div>
+                <div className="audio-details">
+                  <p className="kicker">{track.eyebrow}</p>
+                  <div className="audio-title-row"><h3>{track.title}</h3><span className="track-number">0{index + 1}</span></div>
+                  <p>{track.description}</p>
+                  <div className="player-controls">
+                    <button className="round-control" onClick={() => skipTrack(track.id, -15)} aria-label={`Rewind ${track.title} 15 seconds`}>↶<small>15</small></button>
+                    <button className="main-play" onClick={() => toggleTrack(track.id)} aria-label={`${isPlaying ? "Pause" : "Play"} ${track.title}`}>{isPlaying ? "Ⅱ" : "▶"}</button>
+                    <button className="round-control" onClick={() => skipTrack(track.id, 15)} aria-label={`Fast forward ${track.title} 15 seconds`}>↷<small>15</small></button>
+                  </div>
+                  <div className="progress-row">
+                    <span>{formatTime(isActive ? progress : 0)}</span>
+                    <input className="progress-bar" type="range" min="0" max={isActive ? duration || 0 : 0} step="0.1" value={isActive ? progress : 0} onChange={(event) => seekTrack(track.id, event.target.value)} style={{ "--progress": `${percentage}%` } as CSSProperties} aria-label={`Seek ${track.title}`} />
+                    <span>{formatTime(isActive ? duration - progress : 0)}</span>
+                  </div>
+                  <div className="player-meta"><span>{isPlaying ? "Now playing" : isActive ? "Ready to play" : "Tap to listen"}</span><span className="sound-mark">◖)))</span></div>
+                </div>
+              </article>
+            );
+          })}
         </div>
+        <audio
+          className="shared-audio"
+          ref={audioRef}
+          preload="metadata"
+          onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
+          onPlay={() => {
+            playingTrackRef.current = activeTrack;
+            setPlayingTrack(activeTrack);
+          }}
+          onPause={() => {
+            playingTrackRef.current = null;
+            setPlayingTrack(null);
+          }}
+          onTimeUpdate={(event) => setProgress(event.currentTarget.currentTime)}
+          onEnded={() => {
+            playingTrackRef.current = null;
+            setPlayingTrack(null);
+            setProgress(0);
+          }}
+          onError={() => {
+            playingTrackRef.current = null;
+            setPlayingTrack(null);
+          }}
+        >Your browser does not support audio.</audio>
       </section>
 
       <section className="hall-case shell reveal" id="hall-of-fame">
